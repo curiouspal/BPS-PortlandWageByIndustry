@@ -1,0 +1,148 @@
+library(readxl)
+library(ggplot2)
+
+
+# Set the cut-off points for the income groups.
+
+CutoffLow <- 27720
+CutoffLowerMiddle <- 41370
+CutoffUpperMiddle <- 65800
+
+# For each industry NAICS code "naics" get the occupation distribution as a data frame with occupation code "occ" and percentage employed "percent".
+
+OccupationList <- read.csv("OccupationCodes - Sheet1.csv")
+names(OccupationList)[1] <- "occ"
+#OccupationList <- OccupationList[OccupationList$Level == "detail", ]
+
+OccupationList$Annual.mean.wage <- gsub("\\$", "", OccupationList$Annual.mean.wage)
+OccupationList$Annual.mean.wage <- gsub(",", "", OccupationList$Annual.mean.wage)
+OccupationList$Annual.mean.wage <- as.numeric(OccupationList$Annual.mean.wage)
+### Check the distribution of mean annual wages for different occupations relative to the three cut-off points chosen.
+ggplot(OccupationList, aes(OccupationList$Annual.mean.wage)) + geom_histogram(binwidth = 5000) + geom_vline(xintercept = CutoffLow, color = "red") + geom_vline(xintercept = CutoffLowerMiddle, color = "red") + geom_vline(xintercept = CutoffUpperMiddle, color = "red")
+# Very few occupations have mean annual wage below "CutoffLow" ($27,720). Perhaps looking at the distribution of the median annual wage would be more appropriate. (To do.) 
+
+OccupationList$inclevel[OccupationList$Annual.mean.wage < CutoffLow] <- "Low"
+OccupationList$inclevel[OccupationList$Annual.mean.wage >= CutoffLow & OccupationList$Annual.mean.wage < CutoffLowerMiddle] <- "Lower Middle"
+OccupationList$inclevel[OccupationList$Annual.mean.wage >= CutoffLowerMiddle  & OccupationList$Annual.mean.wage < CutoffUpperMiddle] <- "Upper Middle"
+OccupationList$inclevel[OccupationList$Annual.mean.wage >= CutoffUpperMiddle] <- "High"
+
+OccupationList$inclevel <- ordered(OccupationList$inclevel, levels=c("High", "Upper Middle", "Lower Middle", "Low"))
+summary(OccupationList$inclevel)
+
+##### Get the list of NAICS codes and exclude the industry summary codes 
+
+IndustryList <- read.csv("IndustryList.csv")
+list1 <- (IndustryList$NAICS[IndustryList$Level=="Line item"])
+
+##### Code to download all the industry-occupation matrices from the BLS website and save it in one folder.
+
+downloadIndOccMatrix <- function(l) {
+  for(naics in l) {
+    dest <- paste0("Temp/ind_", as.character(naics), ".xlsx", sep = "")
+    url <- paste("https://www.bls.gov/emp/ind-occ-matrix/ind_xlsx/ind_", as.character(naics), ".xlsx", sep = "")
+    download.file(url, destfile = dest, mode="wb")
+  }
+}
+#downloadIndOccMatrix(list1)   ## Currently, all Excel files are downloaded and part of this git repository. 
+                              ## Therefore this line is commented out. To update these excel files from the 
+                              ## BLS site, un-comment (remove "#" at the beginning of the line) this line.
+                              ## It takes about five minutes to download all the Excel files. 
+
+
+## The "getIndustryOccMatrix()" function below reads the Excel files downloaded above and returns a data frame with three variables - the occupation code, the percentage of employees in the industry who are engaged in that occupation, and the wage level of that occupation.
+
+getIndustryOccMatrix <- function(naics) {
+  dest <- paste0("Temp/ind_", as.character(naics), ".xlsx", sep = "")
+  temp <- read_excel(dest, col_names = FALSE, na = "NA", skip = 5) 
+  temp <- temp[!is.na(temp[[4]]), ]      
+  occ= c()
+  percent = c()
+  inclevel = c()
+  for(i in 1:length(OccupationList$occ)) {
+    if(length(temp[[2]][temp[[2]]==OccupationList$occ[i]])>0 ) {
+      occ <- c(occ, temp[[2]][temp[[2]]==OccupationList$occ[i]])
+      percent <- c(percent, (temp[[4]][temp[[2]]==OccupationList$occ[i]]*100/temp[[4]][1]))
+      inclevel <- c(inclevel, OccupationList$inclevel[OccupationList$occ==OccupationList$occ[i]])
+    }
+  }
+  ind_matrix <- data.frame(occ=occ, percent=percent, inclevel = inclevel)
+  ind_matrix <- ind_matrix[ind_matrix$occ %in% grep("0$", ind_matrix$occ, perl = TRUE, value = TRUE), ]
+  ind_matrix <- ind_matrix[-1, ]
+  return(ind_matrix)
+}
+
+
+# Calculate for each industry the proportion of those in high, upper_middle, lower_middle and low.
+
+industry_prop_incomegroup <- function(naics) {
+  temp <- getIndustryOccMatrix(naics)
+  high <- sum(temp$percent[temp$inclevel==1])/100
+  uppermiddle <- sum(temp$percent[temp$inclevel==2])/100
+  lowermiddle <- sum(temp$percent[temp$inclevel==3])/100
+  low <- sum(temp$percent[temp$inclevel==4])/100
+  return(c(high, uppermiddle, lowermiddle, low))
+}
+
+
+
+#### Create the "output" data frame with the proportions of the 4 income groups for each industry.
+
+output <- data.frame(naics = list1,
+                     high = NA,
+                     uppermiddle = NA,
+                     lowermiddle = NA,
+                     low = NA)
+
+for(i in 1:length(list1)) {
+  proportions <- industry_prop_incomegroup(list1[i])
+  output$naics[i] <- list1[i] 
+  output$high[i] <- round(proportions[1], digits = 3)
+  output$uppermiddle[i] <- round(proportions[2], digits = 3)
+  output$lowermiddle[i] <- round(proportions[3], digits = 3)
+  output$low[i] <- round(proportions[4], digits = 3)
+}
+
+#### Save the "output" data frame as a file.
+write.csv(output, file = "WageGroupProportions_byIndustry.csv")
+
+############# DIAGNOSTICS TO IDENTIFY INDUSTRIES FOR WHICH PROPORTIONS DON'T ADD UP CORRECTLY #####################################
+
+output1 <- output
+output1$tot <- output1$high + output1$uppermiddle + output1$lowermiddle + output1$low
+ggplot(output1, aes(output1$tot)) + geom_histogram() # Check the distribution of the total proportions of the 4 income groups for each industry. We see that most of the totals add up to 1.0 with some rounding errors. 
+output1$naics[output1$tot<0.75]    # List of 3 NAICS codes for which the total of the proportions of the 4 income groups add up to less than 0.95. I will examine manually for each of 
+
+
+# 525900: The total adds up to less than 0.25 because this industry has only 2.5 total employees. So the percentages of employees in different occupations round up to 0.0 for most occupations.
+# 525100: The total adds up to less than 0.5 because this industry has 1.3 total employees. Same reason as above.
+# 523200: Same reason as above. Only 7 employees.
+
+################### TEST ######################
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(21910, 27720, 41370, 65800,	100700)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(48960, 67180, 97420, 134580,	194630)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(19420, 20200, 53010, 92630, 144530)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(83560, 119610, 183890, NA, NA)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
+c(83560, 119610, 183890, NA, NA)
+
+
+
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(21910, 27720, 41370, 65800,	100700)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(48960, 67180, 97420, 134580,	194630)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(19420, 20200, 53010, 92630, 144530)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
+
+ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(83560, 119610, 183890, NA, NA)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
+
+
+cars.lo <- loess(dist ~ speed, cars)
+predict(cars.lo, data.frame(speed = seq(5, 30, 1)), se = TRUE)
+# to get extrapolation
+cars.lo2 <- loess(dist ~ speed, cars,
+                  control = loess.control(surface = "direct"))
+predict(cars.lo2, data.frame(speed = seq(5, 30, 1)), se = TRUE)
