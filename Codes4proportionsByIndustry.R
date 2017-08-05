@@ -140,32 +140,5 @@ output1$naics[output1$tot<0.95]    # List of 10 NAICS codes for which the total 
 # 523200: Same reason as above. Only 7 employees.
 # The remaining are also the same reasons.
 
-################### TEST ######################
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(21910, 27720, 41370, 65800,	100700)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(48960, 67180, 97420, 134580,	194630)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(19420, 20200, 53010, 92630, 144530)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(83560, 119610, 183890, NA, NA)), aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
-c(83560, 119610, 183890, NA, NA)
 
 
-
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(21910, 27720, 41370, 65800,	100700)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(48960, 67180, 97420, 134580,	194630)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(19420, 20200, 53010, 92630, 144530)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
-
-ggplot(data.frame(x=c(0.10, 0.25, 0.5, 0.75, 0.90), y=c(83560, 119610, 183890, NA, NA)), aes(x, y)) + geom_point() + geom_smooth(method = "loess")
-
-
-cars.lo <- loess(dist ~ speed, cars)
-predict(cars.lo, data.frame(speed = seq(5, 30, 1)), se = TRUE)
-# to get extrapolation
-cars.lo2 <- loess(dist ~ speed, cars,
-                  control = loess.control(surface = "direct"))
-predict(cars.lo2, data.frame(speed = seq(5, 30, 1)), se = TRUE)

@@ -1,5 +1,7 @@
 # BPS-PortlandWageByIndustry
 
+The table of coefficients that you need from me is in the file "WageGroupProportions_byIndustry.csv".
+
 The code to calculate the proportions of employees in each of the 4 wage groups by industry is the file "Codes4proportionsByIndustry.R". All the Excel files from BLS (Industry-Occupation Matrices for all industries) are in the Temp folder. You can download this repository on your local computer and run the "Codes4proportionsByIndustry.R" file. All files and data required for the output are included in the repository. 
 
 To update these numbers: 
