@@ -25,7 +25,7 @@ for(i in 1:length(OccupationList$Annual.mean.wage)){
 
 ### Check the distribution of median annual wages for different occupations relative to the three cut-off points chosen.
 ggplot(OccupationList, aes(OccupationList$median)) + geom_histogram(binwidth = 5000) + geom_vline(xintercept = CutoffLow, color = "red") + geom_vline(xintercept = CutoffLowerMiddle, color = "red") + geom_vline(xintercept = CutoffUpperMiddle, color = "red")
-# Very few occupations have mean annual wage below "CutoffLow" ($27,720). Perhaps looking at the distribution of the median annual wage would be more appropriate. (To do.) 
+
 OccupationList$inclevel <- NA
 OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median < CutoffLow] <- "Low"
 OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median >= CutoffLow & OccupationList$median < CutoffLowerMiddle] <- "Lower Middle"
