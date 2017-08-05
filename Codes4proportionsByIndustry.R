@@ -1,8 +1,13 @@
+setwd("~/BPS-PortlandWageByIndustry")
 library(readxl)
 library(ggplot2)
 
+# Import the data frame with Portland MSA's 2016 wage distribution for each occupation.
 
-# Set the cut-off points for the income groups.
+wages_by_occ <- read.csv("~/BPS-PortlandWageByIndustry/PDXwages_by_occ.csv")
+wages_by_occ$median <- as.numeric(gsub(",", "", wages_by_occ$A_MEDIAN))
+
+# Set the cut-off points for the income groups. These are based on overall 25th percentile, 50th percentile and 75th percentile for wages in Portland MSA.
 
 CutoffLow <- 27720
 CutoffLowerMiddle <- 41370
@@ -13,21 +18,38 @@ CutoffUpperMiddle <- 65800
 OccupationList <- read.csv("OccupationCodes - Sheet1.csv")
 names(OccupationList)[1] <- "occ"
 #OccupationList <- OccupationList[OccupationList$Level == "detail", ]
+for(i in 1:length(OccupationList$Annual.mean.wage)){
+  OccupationList$median[i] <- wages_by_occ$median[as.character(wages_by_occ$OCC_CODE)==OccupationList$occ[i] & wages_by_occ$YEAR==2016]
+}
 
-OccupationList$Annual.mean.wage <- gsub("\\$", "", OccupationList$Annual.mean.wage)
-OccupationList$Annual.mean.wage <- gsub(",", "", OccupationList$Annual.mean.wage)
-OccupationList$Annual.mean.wage <- as.numeric(OccupationList$Annual.mean.wage)
-### Check the distribution of mean annual wages for different occupations relative to the three cut-off points chosen.
-ggplot(OccupationList, aes(OccupationList$Annual.mean.wage)) + geom_histogram(binwidth = 5000) + geom_vline(xintercept = CutoffLow, color = "red") + geom_vline(xintercept = CutoffLowerMiddle, color = "red") + geom_vline(xintercept = CutoffUpperMiddle, color = "red")
+
+### Check the distribution of median annual wages for different occupations relative to the three cut-off points chosen.
+ggplot(OccupationList, aes(OccupationList$median)) + geom_histogram(binwidth = 5000) + geom_vline(xintercept = CutoffLow, color = "red") + geom_vline(xintercept = CutoffLowerMiddle, color = "red") + geom_vline(xintercept = CutoffUpperMiddle, color = "red")
 # Very few occupations have mean annual wage below "CutoffLow" ($27,720). Perhaps looking at the distribution of the median annual wage would be more appropriate. (To do.) 
-
-OccupationList$inclevel[OccupationList$Annual.mean.wage < CutoffLow] <- "Low"
-OccupationList$inclevel[OccupationList$Annual.mean.wage >= CutoffLow & OccupationList$Annual.mean.wage < CutoffLowerMiddle] <- "Lower Middle"
-OccupationList$inclevel[OccupationList$Annual.mean.wage >= CutoffLowerMiddle  & OccupationList$Annual.mean.wage < CutoffUpperMiddle] <- "Upper Middle"
-OccupationList$inclevel[OccupationList$Annual.mean.wage >= CutoffUpperMiddle] <- "High"
+OccupationList$inclevel <- NA
+OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median < CutoffLow] <- "Low"
+OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median >= CutoffLow & OccupationList$median < CutoffLowerMiddle] <- "Lower Middle"
+OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median >= CutoffLowerMiddle  & OccupationList$median < CutoffUpperMiddle] <- "Upper Middle"
+OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median >= CutoffUpperMiddle] <- "High"
 
 OccupationList$inclevel <- ordered(OccupationList$inclevel, levels=c("High", "Upper Middle", "Lower Middle", "Low"))
 summary(OccupationList$inclevel)
+OccupationList$Occupation.title[is.na(OccupationList$median)] ### This gives us the list of occupations for which we do not have median annual wage to determine their wage category.
+
+### Below we manually assign "inclevel" values for those occupations that we do not have annual median income.
+OccupationList$inclevel[OccupationList$Occupation.title == "Directors, Religious Activities and Education"] <- "Lower Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Riggers"] <- "Upper Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Set and Exhibit Designers"] <- "Upper Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Actors"] <- "Lower Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Athletes and Sports Competitors"] <- "Upper Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Musicians and Singers"] <- "Upper Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Entertainers and Performers, Sports and Related Workers, All Other"] <- "Low"
+OccupationList$inclevel[OccupationList$Occupation.title == "Anesthesiologists"] <- "High"
+OccupationList$inclevel[OccupationList$Occupation.title == "Obstetricians and Gynecologists"] <- "High"
+OccupationList$inclevel[OccupationList$Occupation.title == "Surgeons"] <- "High"
+OccupationList$inclevel[OccupationList$Occupation.title == "Hearing Aid Specialists"] <- "Upper Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Proofreaders and Copy Markers"] <- "Lower Middle"
+OccupationList$inclevel[OccupationList$Occupation.title == "Airline Pilots, Copilots, and Flight Engineers"] <- "High"
 
 ##### Get the list of NAICS codes and exclude the industry summary codes 
 
@@ -110,12 +132,13 @@ write.csv(output, file = "WageGroupProportions_byIndustry.csv")
 output1 <- output
 output1$tot <- output1$high + output1$uppermiddle + output1$lowermiddle + output1$low
 ggplot(output1, aes(output1$tot)) + geom_histogram() # Check the distribution of the total proportions of the 4 income groups for each industry. We see that most of the totals add up to 1.0 with some rounding errors. 
-output1$naics[output1$tot<0.75]    # List of 3 NAICS codes for which the total of the proportions of the 4 income groups add up to less than 0.95. I will examine manually for each of 
+output1$naics[output1$tot<0.95]    # List of 10 NAICS codes for which the total of the proportions of the 4 income groups add up to less than 0.75. I will examine manually for each of 
 
 
 # 525900: The total adds up to less than 0.25 because this industry has only 2.5 total employees. So the percentages of employees in different occupations round up to 0.0 for most occupations.
 # 525100: The total adds up to less than 0.5 because this industry has 1.3 total employees. Same reason as above.
 # 523200: Same reason as above. Only 7 employees.
+# The remaining are also the same reasons.
 
 ################### TEST ######################
 
