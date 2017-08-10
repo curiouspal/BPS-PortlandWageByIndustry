@@ -54,7 +54,7 @@ OccupationList$inclevel[OccupationList$Occupation.title == "Airline Pilots, Copi
 ##### Get the list of NAICS codes and exclude the industry summary codes 
 
 IndustryList <- read.csv("IndustryList.csv")
-list1 <- (IndustryList$NAICS[IndustryList$Level=="Line item"])
+list1 <- (IndustryList$NAICS)
 
 ##### Code to download all the industry-occupation matrices from the BLS website and save it in one folder.
 
