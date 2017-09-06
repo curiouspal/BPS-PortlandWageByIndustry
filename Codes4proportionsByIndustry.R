@@ -1,6 +1,7 @@
 setwd("~/BPS-PortlandWageByIndustry")
 library(readxl)
 library(ggplot2)
+library(tidyr) # For gather() function.
 
 # Import the data with Portland MSA's 2016 wage distribution for each occupation. The data file used was the one provided by Nick in his email dated July 19, 2017. 
 
@@ -149,3 +150,32 @@ output1$naics[output1$tot<0.95]    # List of 10 NAICS codes for which the total 
 
 
 
+################ Other analysis ##################################3
+
+# For each occupation we can see how the 10th, 25th, 50th, 75th and 90th wage percentile has changed over time.
+for(i in 8:27) {
+  wages_by_occ[[i]] <- as.numeric(gsub(",", "", wages_by_occ[[i]]))
+}
+
+x=c(0.10, 0.25, 0.5, 0.75, 0.90)
+temp <- wages_by_occ[wages_by_occ$OCC_CODE=="00-0000", ]
+temp_long <- gather(temp, percentile, wage, A_PCT10:A_PCT90, factor_key=TRUE)
+temp_long$percentile <- factor(temp_long$percentile, labels = c("0.1", "0.25", "0.50", "0.75", "0.9"), levels = c("A_PCT10", "A_PCT25", "A_MEDIAN", "A_PCT75", "A_PCT90"))
+temp_long$percentile <- as.numeric(as.character(temp_long$percentile))
+ggplot(temp_long, aes(percentile, wage)) + geom_point(aes(color = YEAR)) #+ geom_smooth(method = "loess", span=0.98)
+
+x=c(0.10, 0.25, 0.5, 0.75, 0.90)
+temp <- wages_by_occ[wages_by_occ$OCC_CODE=="11-0000", ]
+temp_long <- gather(temp, percentile, wage, A_PCT10:A_PCT90, factor_key=TRUE)
+temp_long$percentile <- factor(temp_long$percentile, labels = c("0.1", "0.25", "0.50", "0.75", "0.9"), levels = c("A_PCT10", "A_PCT25", "A_MEDIAN", "A_PCT75", "A_PCT90"))
+temp_long$percentile <- as.numeric(as.character(temp_long$percentile))
+ggplot(temp_long, aes(percentile, wage)) + geom_point(aes(color = YEAR)) #+ geom_smooth(method = "loess", span=0.98)
+
+x=c(0.10, 0.25, 0.5, 0.75, 0.90)
+y=c(wages_by_occ$A_PCT10[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
+    wages_by_occ$A_PCT25[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
+    wages_by_occ$A_MEDIAN[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
+    wages_by_occ$A_PCT75[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
+    wages_by_occ$A_PCT90[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016])
+d <- data.frame(x, y)
+ggplot(d, aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98)
