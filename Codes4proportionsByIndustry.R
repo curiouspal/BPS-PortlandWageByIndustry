@@ -2,12 +2,12 @@ setwd("~/BPS-PortlandWageByIndustry")
 library(readxl)
 library(ggplot2)
 
-# Import the data frame with Portland MSA's 2016 wage distribution for each occupation.
+# Import the data with Portland MSA's 2016 wage distribution for each occupation. The data file used was the one provided by Nick in his email dated July 19, 2017. 
 
 wages_by_occ <- read.csv("~/BPS-PortlandWageByIndustry/PDXwages_by_occ.csv")
 wages_by_occ$median <- as.numeric(gsub(",", "", wages_by_occ$A_MEDIAN))
 
-# Set the cut-off points for the income groups. These are based on overall 25th percentile, 50th percentile and 75th percentile for wages in Portland MSA.
+# Set the cut-off points for the income groups. These are based on 25th percentile, 50th percentile and 75th percentile for all wages in Portland MSA.
 
 CutoffLow <- 27720
 CutoffLowerMiddle <- 41370
@@ -15,17 +15,21 @@ CutoffUpperMiddle <- 65800
 
 # For each industry NAICS code "naics" get the occupation distribution as a data frame with occupation code "occ" and percentage employed "percent".
 
-OccupationList <- read.csv("OccupationCodes - Sheet1.csv")
+OccupationList <- read.csv("OccupationCodes - Sheet1.csv") # This file is based on the table here: https://www.bls.gov/oes/current/oes_38900.htm
 names(OccupationList)[1] <- "occ"
 #OccupationList <- OccupationList[OccupationList$Level == "detail", ]
+
+# For the year 2016, what is the median income for each occupation?
 for(i in 1:length(OccupationList$Annual.mean.wage)){
-  OccupationList$median[i] <- wages_by_occ$median[as.character(wages_by_occ$OCC_CODE)==OccupationList$occ[i] & wages_by_occ$YEAR==2016]
+  OccupationList$median[i] <- wages_by_occ$median[as.character(wages_by_occ$OCC_CODE)==OccupationList$occ[i] & wages_by_occ$YEAR==2016]  
 }
 
 
-### Check the distribution of median annual wages for different occupations relative to the three cut-off points chosen.
-ggplot(OccupationList, aes(OccupationList$median)) + geom_histogram(binwidth = 5000) + geom_vline(xintercept = CutoffLow, color = "red") + geom_vline(xintercept = CutoffLowerMiddle, color = "red") + geom_vline(xintercept = CutoffUpperMiddle, color = "red")
+### Check the distribution of median annual wages for different occupations relative to the three cut-off points chosen. 
+### The graph shows that very few occupations have median income below the 25th wage percentile.  
+ggplot(OccupationList, aes(OccupationList$median)) + geom_histogram(binwidth = 5000, color="black") + geom_vline(xintercept = CutoffLow, color = "red") + geom_vline(xintercept = CutoffLowerMiddle, color = "red") + geom_vline(xintercept = CutoffUpperMiddle, color = "red")
 
+## Create a new variable "inclevel" for each occupation that translates the median income of that occupation into one of four categories: Low, Lower Middle, Upper Middle and High.
 OccupationList$inclevel <- NA
 OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median < CutoffLow] <- "Low"
 OccupationList$inclevel[!is.na(OccupationList$median) & OccupationList$median >= CutoffLow & OccupationList$median < CutoffLowerMiddle] <- "Lower Middle"
@@ -36,7 +40,7 @@ OccupationList$inclevel <- ordered(OccupationList$inclevel, levels=c("High", "Up
 summary(OccupationList$inclevel)
 OccupationList$Occupation.title[is.na(OccupationList$median)] ### This gives us the list of occupations for which we do not have median annual wage to determine their wage category.
 
-### Below we manually assign "inclevel" values for those occupations that we do not have annual median income.
+### Below we manually assign "inclevel" values for those occupations that we do not have annual median income. (Based on info that Nick sent by email on July 21, 2017)
 OccupationList$inclevel[OccupationList$Occupation.title == "Directors, Religious Activities and Education"] <- "Lower Middle"
 OccupationList$inclevel[OccupationList$Occupation.title == "Riggers"] <- "Upper Middle"
 OccupationList$inclevel[OccupationList$Occupation.title == "Set and Exhibit Designers"] <- "Upper Middle"
@@ -51,12 +55,14 @@ OccupationList$inclevel[OccupationList$Occupation.title == "Hearing Aid Speciali
 OccupationList$inclevel[OccupationList$Occupation.title == "Proofreaders and Copy Markers"] <- "Lower Middle"
 OccupationList$inclevel[OccupationList$Occupation.title == "Airline Pilots, Copilots, and Flight Engineers"] <- "High"
 
-##### Get the list of NAICS codes and exclude the industry summary codes 
+##### Get the list of NAICS codes and exclude the industry summary codes from the table here: https://www.bls.gov/emp/ep_table_109.htm
+##### It is important to keep in mind that this is national level data for each industry. May or may not reflect the industry-occupation matrix for Portland. 
+##### But we are making an assumption here.
 
 IndustryList <- read.csv("IndustryList.csv")
 list1 <- (IndustryList$NAICS)
 
-##### Code to download all the industry-occupation matrices from the BLS website and save it in one folder.
+##### The function below is to download all the industry-occupation matrices for a given list of industry NAICS codes from the BLS website and save them in a "Temp" folder.
 
 downloadIndOccMatrix <- function(l) {
   for(naics in l) {
@@ -67,11 +73,12 @@ downloadIndOccMatrix <- function(l) {
 }
 #downloadIndOccMatrix(list1)   ## Currently, all Excel files are downloaded and part of this git repository. 
                               ## Therefore this line is commented out. To update these excel files from the 
-                              ## BLS site, un-comment (remove "#" at the beginning of the line) this line.
+                              ## BLS site, un-comment this line.
                               ## It takes about five minutes to download all the Excel files. 
 
 
-## The "getIndustryOccMatrix()" function below reads the Excel files downloaded above and returns a data frame with three variables - the occupation code, the percentage of employees in the industry who are engaged in that occupation, and the wage level of that occupation.
+## The "getIndustryOccMatrix()" function below reads the Excel files downloaded above and returns a dataframe with three variables: 
+## - the occupation code, the percentage of employees in the industry who are engaged in that occupation, and the wage level of that occupation.
 
 getIndustryOccMatrix <- function(naics) {
   dest <- paste0("Temp/ind_", as.character(naics), ".xlsx", sep = "")
