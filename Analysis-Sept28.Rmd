@@ -1,0 +1,71 @@
+---
+title: "Analysis of employment data in Portland MSA."
+author: "Anirban Pal"
+date: "September 27, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Industries with most wage earners in Portland
+
+Which are the industries that have most wage earners in Portland in 2016? 
+
+```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
+library(readxl)
+library(ggplot2)
+library(tidyr) # For gather() function.
+library(readr)
+
+portlandWageByInd <- read_csv("/media/anirban/Ubuntu/Downloads/employmentPortland.csv")
+
+temp <- portlandWageByInd[portlandWageByInd$year=="2016" & portlandWageByInd$Emp>10000 & portlandWageByInd$industry!=0 & !is.na(portlandWageByInd$industry_label.value), ]
+temp <- temp[!is.na(temp$periodicity), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
+  xlab("industries") + ylab("# of wage earners in 2016")
+
+
+```
+
+How has the pattern of employment changed over time? Here is the graph for 2006. 
+
+```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
+
+temp <- portlandWageByInd[portlandWageByInd$year=="2006" & portlandWageByInd$Emp>10000 & portlandWageByInd$industry!=0 & !is.na(portlandWageByInd$industry_label.value), ]
+temp <- temp[!is.na(temp$periodicity), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
+  xlab("industries") + ylab("# of wage earners in 2006")
+```
+
+If we make the graphs based on sectors...
+
+```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+
+temp <- bySector[bySector$year=="2016" & bySector$Emp>1 & bySector$industry!=0 & !is.na(bySector$industry_label.value), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
+  xlab("Sectors") + ylab("# of employees in 2016")
+
+temp <- bySector[bySector$Emp>1 & bySector$industry!=0 & !is.na(bySector$industry_label.value), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp, fill=temp$year)) + geom_bar(position="dodge", stat = "identity") + coord_flip() +
+  xlab("Sectors") + ylab("# of employees in 2016")
+```
+
+Which sectors had the most change in share of employment?
+```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+bySector <- bySector[bySector$industry_label.value!="All NAICS Sectors",]
+
+for(j in 1:length(bySector$periodicity)) {
+  bySector$share[j] <- bySector$Emp[j]*100/sum(bySector$Emp[bySector$year==bySector$year[j]])
+}
+
+temp <- bySector #[bySector$year==2016, ]
+ggplot(temp, aes(x=temp$year, y=temp$share, fill=temp$industry_label.value)) + geom_bar(position="stack", stat = "identity") + coord_flip() +
+  xlab("Sectors") + ylab("# of employees in 2016")
+
+summary(bySector)
+```
+

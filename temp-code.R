@@ -1,12 +1,13 @@
-setwd("~/Desktop/BPS-PortlandWages")
+setwd("~/BPS-PortlandWageByIndustry")
 library(readxl)
 library(ggplot2)
 library(tidyr) # For gather() function.
+library(readr)
 
 # Import the data with Portland MSA's 2016 wage distribution for each occupation. 
 # The data file used was the one provided by Nick in his email dated July 19, 2017. 
 
-wages_by_occ <- read.csv("~/Desktop/BPS-PortlandWages/PDXwages_by_occ.csv")
+wages_by_occ <- read.csv("~/BPS-PortlandWageByIndustry/PDXwages_by_occ.csv")
 wages_by_occ$median <- as.numeric(gsub(",", "", wages_by_occ$A_MEDIAN))
 
 # Set the cut-off points for the income groups. These are based on 25th percentile, 50th percentile and 
@@ -19,7 +20,7 @@ CutoffUpperMiddle <- 65800
 # For each industry NAICS code "naics" get the occupation distribution as a data frame 
 # with occupation code "occ" and percentage employed "percent".
 
-OccupationList <- read.csv("~/Desktop/BPS-PortlandWages/OccupationCodes - Sheet1.csv") 
+OccupationList <- read.csv("OccupationCodes - Sheet1.csv") 
 # This file is based on the table here: https://www.bls.gov/oes/current/oes_38900.htm
 names(OccupationList)[1] <- "occ"
 #OccupationList <- OccupationList[OccupationList$Level == "detail", ]
@@ -67,7 +68,7 @@ OccupationList$inclevel[OccupationList$Occupation.title == "Airline Pilots, Copi
 ##### It is important to keep in mind that this is national level data for each industry. May or may not reflect the industry-occupation matrix for Portland. 
 ##### But we are making an assumption here.
 
-IndustryList <- read.csv("~/Desktop/BPS-PortlandWages/IndustryList.csv")
+IndustryList <- read.csv("IndustryList.csv")
 list1 <- (IndustryList$NAICS)
 
 ##### The function below is to download all the industry-occupation matrices for a given list of industry NAICS codes from the BLS website and save them in a "Temp" folder.
@@ -171,7 +172,8 @@ temp <- wages_by_occ[wages_by_occ$OCC_CODE=="00-0000", ]
 temp_long <- gather(temp, percentile, wage, A_PCT10:A_PCT90, factor_key=TRUE)
 temp_long$percentile <- factor(temp_long$percentile, labels = c("0.1", "0.25", "0.50", "0.75", "0.9"), levels = c("A_PCT10", "A_PCT25", "A_MEDIAN", "A_PCT75", "A_PCT90"))
 temp_long$percentile <- as.numeric(as.character(temp_long$percentile))
-ggplot(temp_long, aes(percentile, wage)) + geom_point(aes(color = YEAR)) #+ geom_smooth(method = "loess", span=0.98)
+ggplot(temp_long, aes(percentile, wage)) + geom_point(aes(color = YEAR)) #+ geom_smooth(method = "loess", span=0.98) 
+
 
 x=c(0.10, 0.25, 0.5, 0.75, 0.90)
 temp <- wages_by_occ[wages_by_occ$OCC_CODE=="11-0000", ]
@@ -180,27 +182,46 @@ temp_long$percentile <- factor(temp_long$percentile, labels = c("0.1", "0.25", "
 temp_long$percentile <- as.numeric(as.character(temp_long$percentile))
 ggplot(temp_long, aes(percentile, wage)) + geom_point(aes(color = YEAR)) #+ geom_smooth(method = "loess", span=0.98)
 
-x=c(0.10, 0.25, 0.5, 0.75, 0.90)
-y=c(wages_by_occ$A_PCT10[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_PCT25[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_MEDIAN[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_PCT75[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_PCT90[wages_by_occ$OCC_CODE=="00-0000" & wages_by_occ$YEAR == 2016])
-d <- data.frame(x, y)
-ggplot(d, aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98) + 
-  geom_hline(yintercept = CutoffLow, color = "red") + 
-  geom_hline(yintercept = CutoffLowerMiddle, color = "red") + 
-  geom_hline(yintercept = CutoffUpperMiddle, color = "red")
+occDist <- function(i) {
+  x=c(0.10, 0.25, 0.5, 0.75, 0.90)
+  y=c(wages_by_occ$A_PCT10[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_PCT25[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_MEDIAN[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_PCT75[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_PCT90[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016])
+  d <- data.frame(x, y)
+  temp <- ggplot(d, aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98) + 
+    geom_hline(yintercept = CutoffLow, color = "red") + 
+    geom_hline(yintercept = CutoffLowerMiddle, color = "red") + 
+    geom_hline(yintercept = CutoffUpperMiddle, color = "red") +
+    ggtitle(OccupationList$Occupation.title[OccupationList$occ==i]) +
+    xlab("percentile") + ylab("income")
+  return(temp)
+}
 
+for(i in 1:10) {
+  print(occDist(as.character(OccupationList$occ[i])))
+}
 
-x=c(0.10, 0.25, 0.5, 0.75, 0.90)  ## computer operators occupation code 43-9011
-y=c(wages_by_occ$A_PCT10[wages_by_occ$OCC_CODE=="43-9011" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_PCT25[wages_by_occ$OCC_CODE=="43-9011" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_MEDIAN[wages_by_occ$OCC_CODE=="43-9011" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_PCT75[wages_by_occ$OCC_CODE=="43-9011" & wages_by_occ$YEAR == 2016], 
-    wages_by_occ$A_PCT90[wages_by_occ$OCC_CODE=="43-9011" & wages_by_occ$YEAR == 2016])
-d <- data.frame(x, y)
-ggplot(d, aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98) + 
-  geom_hline(yintercept = CutoffLow, color = "red") + 
-  geom_hline(yintercept = CutoffLowerMiddle, color = "red") + 
-  geom_hline(yintercept = CutoffUpperMiddle, color = "red")
+########## Which are the industries that have most wage earners in Portland ###################3
+
+portlandWageByInd <- read_csv("/media/anirban/Ubuntu/Downloads/employmentPortland.csv")
+  
+temp <- portlandWageByInd[portlandWageByInd$year=="2016" & portlandWageByInd$Emp>5000 & portlandWageByInd$industry!=0 & !is.na(portlandWageByInd$industry_label.value), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
+  xlab("industries") + ylab("# of employees in 2016")
+
+temp <- portlandWageByInd[portlandWageByInd$year=="2006" & portlandWageByInd$Emp>5000 & portlandWageByInd$industry!=0 & !is.na(portlandWageByInd$industry_label.value), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
+  xlab("industries") + ylab("# of employees in 2006")
+
+########################################################
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+
+temp <- bySector[bySector$year=="2016" & bySector$Emp>1 & bySector$industry!=0 & !is.na(bySector$industry_label.value), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
+  xlab("Sectors") + ylab("# of employees in 2016")
+
+temp <- bySector[bySector$Emp>1 & bySector$industry!=0 & !is.na(bySector$industry_label.value), ]
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp, fill=temp$year)) + geom_bar(position="dodge", stat = "identity") + coord_flip() +
+  xlab("Sectors") + ylab("# of employees in 2016")
