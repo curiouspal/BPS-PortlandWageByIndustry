@@ -1,5 +1,5 @@
 ---
-title: "Analysis of employment data in Portland MSA."
+title: "Exploring employment data in Portland MSA."
 author: "Anirban Pal"
 date: "September 27, 2017"
 output: html_document
@@ -8,10 +8,11 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+Data source for this analyses is the US census. ( https://ledextract.ces.census.gov/static/data.html )
 
 ## Industries with most wage earners in Portland
 
-Which are the industries that have most wage earners in Portland in 2016? 
+Which are the industries that have most employees in Portland in 2016? Below is a list of the top industry clusters (those that employ more than 10,000).
 
 ```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
 library(readxl)
@@ -19,24 +20,26 @@ library(ggplot2)
 library(tidyr) # For gather() function.
 library(readr)
 
-portlandWageByInd <- read_csv("/media/anirban/Ubuntu/Downloads/employmentPortland.csv")
+IndustryList <- read.csv("IndustryList.csv")
+emp4digit <- read_csv("~/BPS-PortlandWageByIndustry/emp_4digitNAICS.csv")
 
-temp <- portlandWageByInd[portlandWageByInd$year=="2016" & portlandWageByInd$Emp>10000 & portlandWageByInd$industry!=0 & !is.na(portlandWageByInd$industry_label.value), ]
+temp <- emp4digit[emp4digit$year=="2016" & emp4digit$Emp>10000 & emp4digit$industry!=0 & !is.na(emp4digit$industry_label.value), ]
 temp <- temp[!is.na(temp$periodicity), ]
-ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
-  xlab("industries") + ylab("# of wage earners in 2016")
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity", fill="cadetblue") + coord_flip() +
+  xlab("industry clusters (4 digit NAICS)") + ylab("# of wage earners in 2016") + ggtitle("For the year 2016...")
+
 
 
 ```
 
-How has the pattern of employment changed over time? Here is the graph for 2006. 
+How has the pattern of employment changed over time? Here is the graph for 2001. 
 
 ```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
 
-temp <- portlandWageByInd[portlandWageByInd$year=="2006" & portlandWageByInd$Emp>10000 & portlandWageByInd$industry!=0 & !is.na(portlandWageByInd$industry_label.value), ]
+temp <- emp4digit[emp4digit$year=="2001" & emp4digit$Emp>10000 & emp4digit$industry!=0 & !is.na(emp4digit$industry_label.value), ]
 temp <- temp[!is.na(temp$periodicity), ]
-ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
-  xlab("industries") + ylab("# of wage earners in 2006")
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity", fill="cadetblue") + coord_flip() +
+  xlab("industry clusters") + ylab("# of wage earners in 2006") + ggtitle("For the year 2001...")
 ```
 
 If we make the graphs based on sectors...
@@ -45,16 +48,13 @@ If we make the graphs based on sectors...
 bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
 
 temp <- bySector[bySector$year=="2016" & bySector$Emp>1 & bySector$industry!=0 & !is.na(bySector$industry_label.value), ]
-ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity") + coord_flip() +
-  xlab("Sectors") + ylab("# of employees in 2016")
+ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp)) + geom_bar(stat = "identity", fill="cadetblue") + coord_flip() +
+  xlab("Sectors") + ylab("# of employees in 2016") + ggtitle("For the year 2016, by sectors...")
 
-temp <- bySector[bySector$Emp>1 & bySector$industry!=0 & !is.na(bySector$industry_label.value), ]
-ggplot(temp, aes(x=reorder(temp$industry_label.value, temp$Emp), y=temp$Emp, fill=temp$year)) + geom_bar(position="dodge", stat = "identity") + coord_flip() +
-  xlab("Sectors") + ylab("# of employees in 2016")
 ```
 
-Which sectors had the most change in share of employment?
-```{r, echo=FALSE, warning=FALSE, fig.height=7, fig.width=9, message=FALSE}
+Which sectors had the most change in share of employment between 2001 and 2016?
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9, message=FALSE}
 bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
 bySector <- bySector[bySector$industry_label.value!="All NAICS Sectors",]
 
@@ -62,10 +62,290 @@ for(j in 1:length(bySector$periodicity)) {
   bySector$share[j] <- bySector$Emp[j]*100/sum(bySector$Emp[bySector$year==bySector$year[j]])
 }
 
-temp <- bySector #[bySector$year==2016, ]
-ggplot(temp, aes(x=temp$year, y=temp$share, fill=temp$industry_label.value)) + geom_bar(position="stack", stat = "identity") + coord_flip() +
-  xlab("Sectors") + ylab("# of employees in 2016")
+temp <- data.frame(bySector$industry_label.value, bySector$year, bySector$share) #[bySector$year==2016 | bySector$year==2001, ]
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2001`
+temp$imp <- "No"
+temp$imp[temp$sector %in% bySector$industry_label.value[bySector$Emp>75000 & bySector$year==2016]] <- "Yes"
 
-summary(bySector)
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Sectors") + ylab("Change in percentage share of employment\nbetween 2001 and 2016") +
+  labs(title = "Change in % share of employment 2001-2016",
+       subtitle = "* Those with 2016 empl > 75,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
 ```
+
+From the above graph, we see that while the share of employment in the manufacturing and retail sectors has dropped in the last 15 years, the share of employment in the health care and social assistance and accommodation and food services have increased.  
+
+Below is the same graph but for the period 2011 and 2016.
+
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9, message=FALSE}
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+bySector <- bySector[bySector$industry_label.value!="All NAICS Sectors",]
+
+for(j in 1:length(bySector$periodicity)) {
+  bySector$share[j] <- bySector$Emp[j]*100/sum(bySector$Emp[bySector$year==bySector$year[j]])
+}
+
+temp <- data.frame(bySector$industry_label.value, bySector$year, bySector$share) #[bySector$year==2016 | bySector$year==2001, ]
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2011`
+temp$imp <- "No"
+temp$imp[temp$sector %in% bySector$industry_label.value[bySector$Emp>75000 & bySector$year==2016]] <- "Yes"
+
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Sectors") + ylab("Change in percentage share of employment\nbetween 2011 and 2016") +
+  labs(title = "Change in % share of employment 2011-2016",
+       subtitle = "* Those with 2016 empl > 75,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+```
+
+In absolute terms, which sectors added the most jobs? 
+
+
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9, message=FALSE}
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+bySector <- bySector[bySector$industry_label.value!="All NAICS Sectors",]
+
+for(j in 1:length(bySector$periodicity)) {
+  bySector$share[j] <- bySector$Emp[j]*100/sum(bySector$Emp[bySector$year==bySector$year[j]])
+}
+
+temp <- data.frame(bySector$industry_label.value, bySector$year, bySector$Emp) 
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2001`
+temp$imp <- "No"
+temp$imp[temp$sector %in% bySector$industry_label.value[bySector$Emp>75000 & bySector$year==2016]] <- "Yes"
+
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Sectors") + ylab("Change in # of jobs\nbetween 2001 and 2016") +
+  labs(title = "Change in Number of Jobs by Sector 2001-2016",
+       subtitle = "* Those with 2016 empl > 75,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+```
+
+The graph below shows that while almost all sectors added new jobs in the last 5 years, some added more jobs than others. Health care sector added almost 20,000 jobs in the last 5 years. Professional, scientific and technical services and accommodation and food services sectors added about 15,000 jobs each in the same period. Retail trade sector added about 9000 new jobs whereas the wholesale trade sector hardly added any.
+
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9, message=FALSE}
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+bySector <- bySector[bySector$industry_label.value!="All NAICS Sectors",]
+
+for(j in 1:length(bySector$periodicity)) {
+  bySector$share[j] <- bySector$Emp[j]*100/sum(bySector$Emp[bySector$year==bySector$year[j]])
+}
+
+temp <- data.frame(bySector$industry_label.value, bySector$year, bySector$Emp) 
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2011`
+temp$imp <- "No"
+temp$imp[temp$sector %in% bySector$industry_label.value[bySector$Emp>75000 & bySector$year==2016]] <- "Yes"
+
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Sectors") + ylab("Change in # of jobs\nbetween 2011 and 2016") +
+  labs(title = "Change in Number of Jobs by Sector 2011-2016",
+       subtitle = "* Those with 2016 empl > 75,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+```
+
+If we use the 4 digit NAICS codes to see the change in the share of employment in each 4 digit industry code between 2001 and 2016:
+
+```{r, echo=FALSE, warning=FALSE, fig.height=11, fig.width=10, message=FALSE}
+emp4digit <- read_csv("~/BPS-PortlandWageByIndustry/emp_4digitNAICS.csv")
+emp4digit <- emp4digit[emp4digit$industry_label.value!="All NAICS Sectors",]
+emp4digit <- emp4digit[!(emp4digit$Emp<5000 & emp4digit$year==2016), ]
+emp4digit$share <- NA
+for(j in 1:length(emp4digit$industry)) {
+  emp4digit$share[j] <- emp4digit$Emp[j]*100/sum(emp4digit$Emp[emp4digit$year==emp4digit$year[j]], na.rm = TRUE)
+}
+
+temp <- data.frame(emp4digit$industry_label.value, emp4digit$year, emp4digit$share) 
+temp <- temp[!is.na(temp[,1]), ]
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2001`
+temp <- temp[!is.na(temp$change), ]
+temp$imp <- "No"
+temp$imp[temp$sector %in% emp4digit$industry_label.value[emp4digit$Emp>20000 & emp4digit$year==2016]] <- "Yes"
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Industry clusters (4 digit NAICS code)") + ylab("Change in percentage share of employment\nbetween 2001 and 2016") +
+  labs(title = "Change in % share of employment 2001-2016",
+       subtitle = "* Industry clusters with 2016 employment\nof less than 5000 in Portland MSA are\nremoved from this graph.\n* Those with 2016 empl > 20,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+```
+
+Instead of change in % share, if we look at the change in absolute number of jobs...
+
+```{r, echo=FALSE, warning=FALSE, fig.height=11, fig.width=10, message=FALSE}
+emp4digit <- read_csv("~/BPS-PortlandWageByIndustry/emp_4digitNAICS.csv")
+emp4digit <- emp4digit[emp4digit$industry_label.value!="All NAICS Sectors",]
+emp4digit <- emp4digit[!(emp4digit$Emp<5000 & emp4digit$year==2016), ]
+emp4digit$share <- NA
+for(j in 1:length(emp4digit$industry)) {
+  emp4digit$share[j] <- emp4digit$Emp[j]*100/sum(emp4digit$Emp[emp4digit$year==emp4digit$year[j]], na.rm = TRUE)
+}
+
+temp <- data.frame(emp4digit$industry_label.value, emp4digit$year, emp4digit$Emp) 
+temp <- temp[!is.na(temp[,1]), ]
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2001`
+temp <- temp[!is.na(temp$change), ]
+temp$imp <- "No"
+temp$imp[temp$sector %in% emp4digit$industry_label.value[emp4digit$Emp>20000 & emp4digit$year==2016]] <- "Yes"
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Industry clusters (4 digit NAICS code)") + ylab("Change in # of jobs\nbetween 2001 and 2016") +
+  labs(title = "Change in # of jobs in 2001-2016 period",
+       subtitle = "* Industry clusters with 2016 employment\nof less than 5000 in Portland MSA are\nremoved from this graph.\n* Those with 2016 empl > 20,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+```
+
+
+If we do the same graphs for the period 2011 to 2016:
+
+```{r, echo=FALSE, warning=FALSE, fig.height=11, fig.width=10, message=FALSE}
+emp4digit <- read_csv("~/BPS-PortlandWageByIndustry/emp_4digitNAICS.csv")
+emp4digit <- emp4digit[emp4digit$industry_label.value!="All NAICS Sectors",]
+emp4digit <- emp4digit[!(emp4digit$Emp<5000 & emp4digit$year==2016), ]
+emp4digit$share <- NA
+for(j in 1:length(emp4digit$industry)) {
+  emp4digit$share[j] <- emp4digit$Emp[j]*100/sum(emp4digit$Emp[emp4digit$year==emp4digit$year[j]], na.rm = TRUE)
+}
+
+temp <- data.frame(emp4digit$industry_label.value, emp4digit$year, emp4digit$share) 
+temp <- temp[!is.na(temp[,1]), ]
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2011`
+temp <- temp[!is.na(temp$change), ]
+temp$imp <- "No"
+temp$imp[temp$sector %in% emp4digit$industry_label.value[emp4digit$Emp>20000 & emp4digit$year==2016]] <- "Yes"
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Industry clusters (4 digit NAICS code)") + ylab("Change in percentage share of employment\nbetween 2011 and 2016") +
+  labs(title = "Change in % share of employment 2011-2016",
+       subtitle = "* Industry clusters with 2016 employment\nof less than 5000 in Portland MSA are\nremoved from this graph.\n* Those with 2016 empl > 20,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+
+```
+
+```{r, echo=FALSE, warning=FALSE, fig.height=11, fig.width=10, message=FALSE}
+emp4digit <- read_csv("~/BPS-PortlandWageByIndustry/emp_4digitNAICS.csv")
+emp4digit <- emp4digit[emp4digit$industry_label.value!="All NAICS Sectors",]
+emp4digit <- emp4digit[!(emp4digit$Emp<5000 & emp4digit$year==2016), ]
+emp4digit$share <- NA
+for(j in 1:length(emp4digit$industry)) {
+  emp4digit$share[j] <- emp4digit$Emp[j]*100/sum(emp4digit$Emp[emp4digit$year==emp4digit$year[j]], na.rm = TRUE)
+}
+
+temp <- data.frame(emp4digit$industry_label.value, emp4digit$year, emp4digit$Emp) 
+temp <- temp[!is.na(temp[,1]), ]
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2011`
+temp <- temp[!is.na(temp$change), ]
+temp$imp <- "No"
+temp$imp[temp$sector %in% emp4digit$industry_label.value[emp4digit$Emp>20000 & emp4digit$year==2016]] <- "Yes"
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill =temp$imp)) + coord_flip() +
+  xlab("Industry clusters (4 digit NAICS code)") + ylab("Change in # of jobs\nbetween 2011 and 2016") +
+  labs(title = "Change in # of jobs in 2011-2016 period",
+       subtitle = "* Industry clusters with 2016 employment\nof less than 5000 in Portland MSA are\nremoved from this graph.\n* Those with 2016 empl > 20,000 are in red",
+       caption = "Source: https://www.census.gov/ces/") + 
+  scale_fill_manual(values=c("cadetblue", "red"), breaks=c("No", "Yes"), labels=c("No", "Yes")) + theme(legend.position="none")
+
+```
+It is interesting that the industry cluster "Management of Companies and Enterprises" added more jobs than new restaurant jobs in the last 5 years (more than 12000).
+
+
+### Distribution of wages in some of the occupations
+
+The graphs below show the distribution of wages in some selected occupations in Portland. The horizontal red lines are the cut-off points for determining whether someone is high, upper middle, lower middle or low wage category. 
+
+CutoffLow <- 27720
+
+CutoffLowerMiddle <- 41370
+
+CutoffUpperMiddle <- 65800
+
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=8, message=FALSE}
+wages_by_occ <- read.csv("~/BPS-PortlandWageByIndustry/PDXwages_by_occ.csv")
+wages_by_occ$median <- as.numeric(gsub(",", "", wages_by_occ$A_MEDIAN))
+for(i in 8:27) {
+  wages_by_occ[[i]] <- as.numeric(gsub(",", "", wages_by_occ[[i]]))
+}
+
+CutoffLow <- 27720
+CutoffLowerMiddle <- 41370
+CutoffUpperMiddle <- 65800
+
+OccupationList <- read.csv("OccupationCodes - Sheet1.csv") 
+names(OccupationList)[1] <- "occ"
+
+for(i in 1:length(OccupationList$Annual.mean.wage)){
+  OccupationList$median[i] <- wages_by_occ$median[as.character(wages_by_occ$OCC_CODE)==OccupationList$occ[i] & wages_by_occ$YEAR==2016]  
+}
+
+IndustryList <- read.csv("IndustryList.csv")
+
+
+
+occDist <- function(i) {
+  x=c(0.10, 0.25, 0.5, 0.75, 0.90)
+  y=c(wages_by_occ$A_PCT10[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_PCT25[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_MEDIAN[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_PCT75[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016], 
+      wages_by_occ$A_PCT90[wages_by_occ$OCC_CODE==i & wages_by_occ$YEAR == 2016])
+  d <- data.frame(x, y)
+  temp <- ggplot(d, aes(x, y)) + geom_point() + geom_smooth(method = "loess", span=0.98) + 
+    geom_hline(yintercept = CutoffLow, color = "red") + 
+    geom_hline(yintercept = CutoffLowerMiddle, color = "red") + 
+    geom_hline(yintercept = CutoffUpperMiddle, color = "red") +
+    ggtitle(paste0(OccupationList$Occupation.title[OccupationList$occ==i], " : ", i, sep="")) +
+    xlab("percentile") + ylab("wage") + 
+    labs(subtitle = paste0("(In 2016, there were\n", OccupationList$Employment[OccupationList$occ==i], " jobs in this occupation\nin Portland.)", sep="")) 
+  return(temp)
+}
+
+
+
+for(i in 1:length(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ)) {
+  print(occDist(as.character(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ[i])))
+}
+
+
+```
+
 
