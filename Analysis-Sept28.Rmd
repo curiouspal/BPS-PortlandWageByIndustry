@@ -167,6 +167,32 @@ ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar
 
 ```
 
+```{r, echo=FALSE, warning=FALSE, fig.height=5, fig.width=9, message=FALSE}
+bySector <- read_csv("/media/anirban/Ubuntu/Downloads/bySector.csv")
+bySector <- bySector[bySector$industry_label.value!="All NAICS Sectors",]
+
+for(j in 1:length(bySector$periodicity)) {
+  bySector$share[j] <- bySector$Emp[j]*100/sum(bySector$Emp[bySector$year==bySector$year[j]])
+}
+
+temp <- data.frame(bySector$industry_label.value, bySector$year, bySector$Emp) 
+names(temp)[3] <- "share"
+names(temp)[2] <- "year"
+names(temp)[1] <- "sector"
+temp <- spread(temp, year, share)
+temp$change <- temp$`2016`-temp$`2011`
+temp$imp <- "No"
+temp$imp[temp$sector %in% bySector$industry_label.value[bySector$Emp>75000 & bySector$year==2016]] <- "Yes"
+
+ggplot(temp, aes(x=reorder(temp$sector, temp$change), y=temp$change)) + geom_bar(stat = "identity", aes(fill = -(temp$`2016`))) + coord_flip() +
+  xlab("Sectors") + ylab("Change in # of jobs\nbetween 2011 and 2016") +
+  labs(title = "Change in Number of Jobs by Sector 2011-2016",
+       subtitle = "Darker bars are sectors that employed more people in 2016.",
+       caption = "Source: https://www.census.gov/ces/") + theme(legend.position="none")
+
+```
+
+
 If we use the 4 digit NAICS codes to see the change in the share of employment in each 4 digit industry code between 2001 and 2016:
 
 ```{r, echo=FALSE, warning=FALSE, fig.height=11, fig.width=10, message=FALSE}
