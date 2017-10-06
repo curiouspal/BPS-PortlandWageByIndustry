@@ -367,11 +367,52 @@ occDist <- function(i) {
 
 
 
+#for(i in 1:length(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ)) {
+#  print(occDist(as.character(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ[i])))
+#}
+
+#####################################################
+
+d <- gather(wages_by_occ, percentile, wage, A_PCT10:A_PCT90, factor_key=TRUE)
+d$percentile <- as.numeric(as.character(factor(d$percentile, levels=c("A_PCT10",  "A_PCT25", "A_MEDIAN",  "A_PCT75",  "A_PCT90"), labels=c("10", "25", "50", "75", "90"))))
+
+
+occDist <- function(i) {
+  tempdata <- d[d$OCC_CODE == i, ]
+  temp <- ggplot(tempdata, aes(percentile, wage, group = YEAR, color = YEAR)) + geom_point() + geom_smooth(method = "loess", span=0.98) + 
+    geom_hline(yintercept = CutoffLow, color = "red") + 
+    geom_hline(yintercept = CutoffLowerMiddle, color = "red") + 
+    geom_hline(yintercept = CutoffUpperMiddle, color = "red") +
+    ggtitle(paste0(OccupationList$Occupation.title[OccupationList$occ==i], " : ", i, sep="")) +
+    xlab("percentile") + ylab("wage") + 
+    labs(subtitle = paste0("(In 2016, there were\n", OccupationList$Employment[OccupationList$occ==i], " jobs in this occupation\nin Portland.)", sep="")) 
+  return(temp)
+}
+
+
+
 for(i in 1:length(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ)) {
   print(occDist(as.character(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ[i])))
 }
 
+##################################################################################
+occDist <- function(i) {
+  tempdata <- d[d$OCC_CODE == i, ]
+  temp <- ggplot(tempdata, aes(YEAR, wage, group = percentile, color = percentile)) + geom_point() + geom_smooth(method = "loess", span=0.98) + 
+    geom_hline(yintercept = CutoffLow, color = "red") + 
+    geom_hline(yintercept = CutoffLowerMiddle, color = "red") + 
+    geom_hline(yintercept = CutoffUpperMiddle, color = "red") +
+    ggtitle(paste0(OccupationList$Occupation.title[OccupationList$occ==i], " : ", i, sep="")) +
+    xlab("percentile") + ylab("wage") + 
+    labs(subtitle = paste0("(In 2016, there were\n", OccupationList$Employment[OccupationList$occ==i], " jobs in this occupation\nin Portland.)", sep="")) 
+  return(temp)
+}
 
+
+
+for(i in 1:length(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ)) {
+  print(occDist(as.character(OccupationList[(OccupationList$Employment > 8000) & (OccupationList$Level=="detail"), ]$occ[i])))
+}
 ```
 
 
